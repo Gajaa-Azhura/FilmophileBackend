@@ -1,18 +1,19 @@
 import Film from '../models/Films.js';
 
 export const uploadFilm = async (req, res) => {
-  const { title, description, videoUrl, thumbnailUrl } = req.body;
   try {
+    const { title, description, videoUrl, thumbnailUrl } = req.body;
     const film = await Film.create({
       title,
       description,
       videoUrl,
       thumbnailUrl,
-      uploadedBy: req.user._id,
+      uploadedBy: req.user.id,
+      status: 'pending',
     });
     res.status(201).json(film);
-  } catch (err) {
-    res.status(500).json({ error: 'Upload failed' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while uploading film' });
   }
 };
 
@@ -20,28 +21,45 @@ export const getAllApprovedFilms = async (req, res) => {
   try {
     const films = await Film.find({ status: 'approved' }).populate('uploadedBy', 'name');
     res.json(films);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch approved films' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while fetching approved films' });
   }
 };
 
-export const approveFilm = async (req, res) => {
+export const updateFilm = async (req, res) => {
+  try {
+    const { title, description, videoUrl, thumbnailUrl } = req.body;
+    const film = await Film.findById(req.params.id);
+    if (!film) return res.status(404).json({ message: 'Film not found' });
+
+    if (req.user.role !== 'admin' && film.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to update this film' });
+    }
+
+    film.title = title || film.title;
+    film.description = description || film.description;
+    film.videoUrl = videoUrl || film.videoUrl;
+    film.thumbnailUrl = thumbnailUrl || film.thumbnailUrl;
+    await film.save();
+
+    res.json({ message: 'Film updated successfully', film });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while updating film' });
+  }
+};
+
+export const deleteFilm = async (req, res) => {
   try {
     const film = await Film.findById(req.params.id);
-    if (!film) return res.status(404).json({ error: 'Film not found' });
-    film.status = 'approved';
-    await film.save();
-    res.json({ message: 'Film approved' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to approve film' });
-  }
-};
+    if (!film) return res.status(404).json({ message: 'Film not found' });
 
-export const getAllPendingFilms = async (req, res) => {
-  try {
-    const films = await Film.find({ status: 'pending' });
-    res.json(films);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch pending films' });
+    if (req.user.role !== 'admin' && film.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to delete this film' });
+    }
+
+    await film.remove();
+    res.json({ message: 'Film deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while deleting film' });
   }
 };
