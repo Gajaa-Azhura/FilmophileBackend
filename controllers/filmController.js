@@ -3,6 +3,9 @@ import Film from '../models/Films.js';
 export const uploadFilm = async (req, res) => {
   try {
     const { title, description, videoUrl, thumbnailUrl } = req.body;
+    if (!title || !description || !videoUrl || !thumbnailUrl) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
     const film = await Film.create({
       title,
       description,
@@ -32,14 +35,15 @@ export const updateFilm = async (req, res) => {
     const film = await Film.findById(req.params.id);
     if (!film) return res.status(404).json({ message: 'Film not found' });
 
-    if (req.user.role !== 'admin' && film.uploadedBy.toString() !== req.user.id) {
+    // Check if the requester is the uploader or an admin
+    if (film.uploadedBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Unauthorized to update this film' });
     }
 
-    film.title = title || film.title;
-    film.description = description || film.description;
-    film.videoUrl = videoUrl || film.videoUrl;
-    film.thumbnailUrl = thumbnailUrl || film.thumbnailUrl;
+    if (title) film.title = title;
+    if (description) film.description = description;
+    if (videoUrl) film.videoUrl = videoUrl;
+    if (thumbnailUrl) film.thumbnailUrl = thumbnailUrl;
     await film.save();
 
     res.json({ message: 'Film updated successfully', film });
@@ -53,7 +57,8 @@ export const deleteFilm = async (req, res) => {
     const film = await Film.findById(req.params.id);
     if (!film) return res.status(404).json({ message: 'Film not found' });
 
-    if (req.user.role !== 'admin' && film.uploadedBy.toString() !== req.user.id) {
+    // Check if the requester is the uploader or an admin
+    if (film.uploadedBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Unauthorized to delete this film' });
     }
 
