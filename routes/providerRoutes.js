@@ -6,6 +6,6 @@ const router = express.Router();
 
 router.get('/artists/:id', protect, getArtistProfile);
 router.put('/artists/:id', protect, updateArtistProfile);
-router.delete('/artists/:id', protect, deleteArtistProfile);
+router.delete('/artists/:id', protect,[isAdmin], deleteArtistProfile);
 
 export default router;

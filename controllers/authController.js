@@ -2,6 +2,30 @@ import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+import mongoose from 'mongoose';
+
+export const deleteUser = async (req, res) => {
+  try {
+    console.log('Delete User - Request params:', req.params);
+    console.log('Delete User - Request user:', req.user);
+    if (!req.params.id || !mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!req.user || (req.user.id !== user._id.toString() && req.user.role !== 'admin')) {
+      return res.status(403).json({ message: 'Unauthorized to delete this user' });
+    }
+
+    await user.deleteOne(); // Ensure this is the method used
+    console.log('Delete User - User removed:', req.params.id);
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete User - Error:', error.message, error.stack);
+    res.status(500).json({ message: 'Server error while deleting user', error: error.message });
+  }
+};
 export const updateUser = async (req, res) => {
   try {
     console.log('Request params:', req.params); // Debug: Check :id
@@ -28,24 +52,7 @@ export const updateUser = async (req, res) => {
   }
 };
 
-export const deleteUser = async (req, res) => {
-  try {
-    console.log('Request params:', req.params); // Debug: Check :id
-    console.log('Request user:', req.user); // Debug: Check authenticated user
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (!req.user || (req.user.id !== user._id.toString() && req.user.role !== 'admin')) {
-      return res.status(403).json({ message: 'Unauthorized to delete this user' });
-    }
-
-    await user.remove();
-    res.json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Delete error:', error);
-    res.status(500).json({ message: 'Server error while deleting user', error: error.message });
-  }
-};
 
 // Other functions (registerUser, loginUser) remain unchanged
 export const registerUser = async (req, res) => {
@@ -62,7 +69,7 @@ export const registerUser = async (req, res) => {
 
     const user = await User.create({ name, email, password: hashedPassword, role });
     if (user) {
-      const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '48h' });
       res.status(201).json({ user: { _id: user._id, name, email, role }, token });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -82,7 +89,7 @@ export const loginUser = async (req, res) => {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '48h' });
     res.json({ user: { _id: user._id, name: user.name, email: user.email, role: user.role }, token });
   } catch (error) {
     res.status(500).json({ message: 'Server error while logging in' });
