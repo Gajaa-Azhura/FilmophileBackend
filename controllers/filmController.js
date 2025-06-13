@@ -3,6 +3,79 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import path from 'path';
 
+import Comment from '../models/Comment.js';
+// Import mongoose to check ObjectId
+
+// Add comment or review
+export const addComment = async (req, res) => {
+  try {
+    const { filmId, text, rating, isReview = false } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(filmId)) {
+      return res.status(400).json({ message: 'Invalid film ID' });
+    }
+
+    const film = await Film.findById(filmId);
+    if (!film) return res.status(404).json({ message: 'Film not found' });
+    if (!film.isApproved) return res.status(403).json({ message: 'Film not approved' });
+
+    if (isReview && !rating) {
+      return res.status(400).json({ message: 'Rating is required for a review' });
+    }
+
+    const comment = new Comment({
+      film: filmId,
+      user: req.user.id,
+      text,
+      rating: isReview ? rating : undefined,
+      isReview
+    });
+    await comment.save();
+
+    film.comments.push(comment._id);
+    await film.save();
+
+    res.status(201).json(comment);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get comments for a film (including reviews)
+export const getComments = async (req, res) => {
+  try {
+    const { filmId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(filmId)) {
+      return res.status(400).json({ message: 'Invalid film ID' });
+    }
+
+    const film = await Film.findById(filmId);
+    if (!film || !film.isApproved) return res.status(404).json({ message: 'Film not found or not approved' });
+
+    const comments = await Comment.find({ film: filmId }).populate('user', 'username');
+    res.json(comments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get film views
+export const getFilmViews = async (req, res) => {
+  try {
+    const { filmId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(filmId)) {
+      return res.status(400).json({ message: 'Invalid film ID' });
+    }
+
+    const film = await Film.findById(filmId);
+    if (!film || !film.isApproved) return res.status(404).json({ message: 'Film not found or not approved' });
+    res.json({ filmId, views: film.views });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)

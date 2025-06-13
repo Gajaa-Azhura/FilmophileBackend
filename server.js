@@ -1,24 +1,47 @@
 import express from 'express';
+import { Server } from 'socket.io';
+import http from 'http';
+import filmRoutes from './routes/filmRoutes.js';
+import { connectDB } from './config/db.js'; // Corrected path// Assuming db.js handles MongoDB connection
 import dotenv from 'dotenv';
 import cors from 'cors';
-import connectDB from './config/db.js';
+import path from 'path';
 import authRoutes from './routes/authRoutes.js';
-import filmRoutes from './routes/filmRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import providerRoutes from './routes/providerRoutes.js';
-import errorHandler from './middleware/errorHandler.js';
-import path from 'path';
+import errorHandler from './middleware/errorHandler.js'; // Custom error handler middleware
 import { fileURLToPath } from 'url';
-
-dotenv.config(); // Load .env file
-connectDB(); // Connect to MongoDB
-
-const app = express();
-
-// Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+dotenv.config();
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+app.use(express.json());
+app.use('/api/films', filmRoutes);
+
+// Socket.IO: Track views
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('viewFilm', async (filmId) => {
+    try {
+      const Film = (await import('./models/FilmModel.js')).default;
+      const film = await Film.findById(filmId);
+      if (film && film.isApproved) {
+        film.views += 1;
+        await film.save();
+        io.emit('viewUpdate', { filmId, views: film.views });
+      }
+    } catch (err) {
+      console.error('Error updating views:', err);
+    }
+  });
+
+  socket.on('disconnect', () => console.log('User disconnected:', socket.id));
+});
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -34,10 +57,29 @@ app.use((req, res) => res.status(404).json({ error: 'Route not found', path: req
 
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+connectDB().then(() => {
+  server.listen(process.env.PORT || 5000, () => console.log('Server running on port', process.env.PORT || 3000));
+}).catch(err => console.error('Database connection error:', err));
 
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

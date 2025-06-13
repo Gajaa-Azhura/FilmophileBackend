@@ -1,3 +1,7 @@
 node_modules/
 
 .env
+
+# Ignore uploaded files or temp folders
+uploads/
+logs/

@@ -3,7 +3,3 @@ node_modules/
 
 # Ignore environment variables
 .env
-
-# Ignore uploaded files or temp folders
-uploads/
-logs/
