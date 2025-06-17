@@ -42,7 +42,12 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => console.log('User disconnected:', socket.id));
 });
-app.use(cors());
+
+app.use(cors({
+  origin: 'http://localhost:5173', // Allow requests from this origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
+}));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
