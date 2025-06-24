@@ -5,3 +5,5 @@ node_modules/
 # Ignore uploaded files or temp folders
 uploads/
 logs/
+
+serviceAccountKey.json
