@@ -24,6 +24,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
 // Firebase Admin SDK Initialization
 try {
@@ -69,35 +70,36 @@ io.on('connection', (socket) => {
 });
 
 // Registration Endpoint
-app.post('/api/auth/register', (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password) return res.status(400).json({ message: 'All fields are required' });
-  if (!/\S+@\S+\.\S+/.test(email)) return res.status(400).json({ message: 'Invalid email format' });
-  res.status(201).json({ token: 'dummy-token', role: 'user', name });
-});
+// app.post('/api/auth/register', (req, res) => {
+//   const { name, email, password } = req.body;
+//   if (!name || !email || !password) return res.status(400).json({ message: 'All fields are required' });
+//   if (!/\S+@\S+\.\S+/.test(email)) return res.status(400).json({ message: 'Invalid email format' });
+//   res.status(201).json({ token: 'dummy-token', role: 'user', name });
+// });
 
 // Login Endpoint
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ message: 'All fields are required' });
-  try {
-    const user = await User.findOne({ email });
-    if (user && password === 'vinojina72') { // Replace with proper password check
-      const jwtToken = jwt.sign({ email, role: 'user' }, process.env.JWT_SECRET || 'your-secure-jwt-secret', { expiresIn: '1h' });
-      res.status(200).json({ token: jwtToken, role: 'user', name: user.name });
-    } else {
-      res.status(400).json({ message: 'Invalid email or password' });
-    }
-  } catch (err) {
-    console.error('Login Error:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+// app.post('/api/auth/login', async (req, res) => {
+//   const { email, password } = req.body;
+//   if (!email || !password) return res.status(400).json({ message: 'All fields are required' });
+//   try {
+//     const user = await User.findOne({ email });
+//     if (user && password === 'vinojina72') { // Replace with proper password check
+//       const jwtToken = jwt.sign({ email, role: 'user' }, process.env.JWT_SECRET || 'your-secure-jwt-secret', { expiresIn: '1h' });
+//       res.status(200).json({ token: jwtToken, role: 'user', name: user.name });
+//     } else {
+//       res.status(400).json({ message: 'Invalid email or password' });
+//     }
+//   } catch (err) {
+//     console.error('Login Error:', err);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// });
 
 // Google Auth Endpoint
 app.post('/api/auth/google', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: 'No token provided' });
+  
 
   try {
     const decodedToken = await getAuth().verifyIdToken(token);
@@ -167,8 +169,9 @@ app.use(errorHandler);
 // Start Server
 connectDB()
   .then(() => {
-    server.listen(process.env.PORT || 5000, () => {
-      console.log('Server running on port', process.env.PORT || 5000);
+    const PORT = process.env.PORT ;
+    server.listen(PORT, () => {
+      console.log('Server running on port', PORT);
     });
   })
   .catch(err => console.error('Database connection error:', err));
