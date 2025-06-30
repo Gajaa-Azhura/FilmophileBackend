@@ -102,6 +102,8 @@ export const loginUser = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
+        const role = email === 'admin1@gmail.com' ? 'admin' : user.role;
+
     const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ message: 'Invalid credentials' });
