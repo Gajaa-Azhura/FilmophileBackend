@@ -52,7 +52,15 @@ export const updateUser = async (req, res) => {
   }
 };
 
-
+// Get all users (admin only)
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}, '-password'); // Exclude password field
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while fetching users' });
+  }
+};
 
 // Other functions (registerUser, loginUser) remain unchanged
 export const registerUser = async (req, res) => {
@@ -102,14 +110,25 @@ export const loginUser = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
-        const role = email === 'admin1@gmail.com' ? 'admin' : user.role;
 
     const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '48h' });
-    res.json({ user: { _id: user._id, name: user.name, email: user.email, role: user.role }, token });
+
+    // Force role to 'admin' for admin1@gmail.com, otherwise use user.role
+    let role = user.role;
+    if (email === 'admin1@gmail.com') {
+      role = 'admin';
+      // Optionally update the user's role in the database if not already admin
+      if (user.role !== 'admin') {
+        user.role = 'admin';
+        await user.save();
+      }
+    }
+
+    const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '48h' });
+    res.json({ user: { _id: user._id, name: user.name, email: user.email, role }, token });
   } catch (error) {
     res.status(500).json({ message: 'Server error while logging in' });
   }

@@ -133,6 +133,21 @@ export const getAllApprovedFilms = async (req, res) => {
   }
 };
 
+// Get all pending films (admin only)
+export const getAllPendingFilms = async (req, res) => {
+  try {
+    const films = await Film.find({ status: 'pending' }).populate('uploadedBy', 'name');
+    // Add uploader name to each film object
+    const filmsWithUploader = films.map(film => ({
+      ...film.toObject(),
+      uploaderName: film.uploadedBy && film.uploadedBy.name ? film.uploadedBy.name : null
+    }));
+    res.json(filmsWithUploader);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Update a film
 export const updateFilm = async (req, res) => {
   try {
