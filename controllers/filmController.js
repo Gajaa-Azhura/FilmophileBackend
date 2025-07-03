@@ -196,3 +196,29 @@ export const deleteFilm = async (req, res) => {
     res.status(500).json({ message: 'Server error while deleting film', error: error.message });
   }
 };
+
+// Approve a film (admin only)
+export const approveFilm = async (req, res) => {
+  try {
+    const film = await Film.findById(req.params.id);
+    if (!film) return res.status(404).json({ message: 'Film not found' });
+    film.status = 'approved';
+    await film.save();
+    res.json({ message: 'Film approved successfully', film });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while approving film', error: error.message });
+  }
+};
+
+// Decline a film (admin only)
+export const declineFilm = async (req, res) => {
+  try {
+    const film = await Film.findById(req.params.id);
+    if (!film) return res.status(404).json({ message: 'Film not found' });
+    film.status = 'declined';
+    await film.save();
+    res.json({ message: 'Film declined successfully', film });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while declining film', error: error.message });
+  }
+};

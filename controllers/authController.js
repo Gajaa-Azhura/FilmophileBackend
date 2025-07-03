@@ -120,15 +120,17 @@ export const loginUser = async (req, res) => {
     let role = user.role;
     if (email === 'admin1@gmail.com') {
       role = 'admin';
-      // Optionally update the user's role in the database if not already admin
       if (user.role !== 'admin') {
         user.role = 'admin';
         await user.save();
       }
     }
 
+    // Ensure name is always included in the response
+    const name = user.name || user.username || '';
+
     const token = jwt.sign({ id: user._id, role }, process.env.JWT_SECRET, { expiresIn: '48h' });
-    res.json({ user: { _id: user._id, name: user.name, email: user.email, role }, token });
+    res.json({ user: { _id: user._id, name, email: user.email, role }, token });
   } catch (error) {
     res.status(500).json({ message: 'Server error while logging in' });
   }
