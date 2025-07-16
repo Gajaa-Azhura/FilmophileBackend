@@ -1,3 +1,12 @@
+// Get all films (approved only)
+export const getAllFilms = async (req, res) => {
+  try {
+    const films = await Film.find({ status: 'approved' }).populate('uploadedBy', 'name');
+    res.json(films);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 import Film from '../models/Films.js';
 import mongoose from 'mongoose';
 import multer from 'multer';
@@ -16,7 +25,7 @@ export const addComment = async (req, res) => {
 
     const film = await Film.findById(filmId);
     if (!film) return res.status(404).json({ message: 'Film not found' });
-    if (!film.isApproved) return res.status(403).json({ message: 'Film not approved' });
+    if (film.status !== 'approved') return res.status(403).json({ message: 'Film not approved' });
 
     if (isReview && !rating) {
       return res.status(400).json({ message: 'Rating is required for a review' });
@@ -50,7 +59,7 @@ export const getComments = async (req, res) => {
     }
 
     const film = await Film.findById(filmId);
-    if (!film || !film.isApproved) return res.status(404).json({ message: 'Film not found or not approved' });
+    if (!film || film.status !== 'approved') return res.status(404).json({ message: 'Film not found or not approved' });
 
     const comments = await Comment.find({ film: filmId }).populate('user', 'username');
     res.json(comments);
@@ -69,7 +78,7 @@ export const getFilmViews = async (req, res) => {
     }
 
     const film = await Film.findById(filmId);
-    if (!film || !film.isApproved) return res.status(404).json({ message: 'Film not found or not approved' });
+    if (!film || film.status !== 'approved') return res.status(404).json({ message: 'Film not found or not approved' });
     res.json({ filmId, views: film.views });
   } catch (err) {
     console.error(err);
@@ -95,28 +104,23 @@ const upload = multer({
 
 export const uploadFilm = async (req, res) => {
   try {
-    upload.fields([{ name: 'videoUrl', maxCount: 1 }, { name: 'thumbnailUrl', maxCount: 1 }])(req, res, async (err) => {
-      if (err) {
-        console.error('Multer Error:', err.message);
-        return res.status(400).json({ message: 'File upload error', error: err.message });
-      }
+    const { title, description, videoUrl, thumbnailUrl } = req.body;
 
-      const { title, description } = req.body;
-      if (!title || !description) {
-        return res.status(400).json({ message: 'Title and description are required' });
-      }
+    if (!title || !description || !videoUrl || !thumbnailUrl) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
 
-      const film = await Film.create({
-        title,
-        description,
-        videoUrl: req.files['videoUrl'][0].path,
-        thumbnailUrl: req.files['thumbnailUrl'][0].path,
-        uploadedBy: req.user.id,
-        status: 'pending'
-      });
-
-      res.status(201).json(film);
+    const film = new Film({
+      title,
+      description,
+      videoUrl,
+      thumbnailUrl,
+      uploadedBy: req.user.id,
     });
+
+    await film.save();
+
+    res.status(201).json(film);
   } catch (error) {
     console.error('Server Error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -127,6 +131,25 @@ export const uploadFilm = async (req, res) => {
 export const getAllApprovedFilms = async (req, res) => {
   try {
     const films = await Film.find({ status: 'approved' }).populate('uploadedBy', 'name');
+    res.json(films);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Search films
+export const searchFilms = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.status(400).json({ message: 'Query parameter is required' });
+    }
+
+    const films = await Film.find({
+      title: { $regex: query, $options: 'i' },
+      status: 'approved'
+    }).populate('uploadedBy', 'name');
+
     res.json(films);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -151,10 +174,16 @@ export const getAllPendingFilms = async (req, res) => {
 // Update a film
 export const updateFilm = async (req, res) => {
   try {
-    const { title, description, videoUrl, thumbnailUrl } = req.body;
+    const { title, description, videoUrl, thumbnailUrl, status } = req.body;
     const film = await Film.findById(req.params.id);
     if (!film) return res.status(404).json({ message: 'Film not found' });
 
+    // Only admin can approve/reject (change status)
+    if (status && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can approve or reject films' });
+    }
+
+    // Only admin or uploader can update other fields
     if (req.user.id !== film.uploadedBy.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Unauthorized to update this film' });
     }
@@ -163,6 +192,7 @@ export const updateFilm = async (req, res) => {
     if (description) film.description = description;
     if (videoUrl) film.videoUrl = videoUrl;
     if (thumbnailUrl) film.thumbnailUrl = thumbnailUrl;
+    if (status && req.user.role === 'admin') film.status = status;
     const updatedFilm = await film.save();
     res.json({
       message: 'Film updated successfully',
@@ -194,31 +224,5 @@ export const deleteFilm = async (req, res) => {
   } catch (error) {
     console.error('Delete Film - Error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error while deleting film', error: error.message });
-  }
-};
-
-// Approve a film (admin only)
-export const approveFilm = async (req, res) => {
-  try {
-    const film = await Film.findById(req.params.id);
-    if (!film) return res.status(404).json({ message: 'Film not found' });
-    film.status = 'approved';
-    await film.save();
-    res.json({ message: 'Film approved successfully', film });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while approving film', error: error.message });
-  }
-};
-
-// Decline a film (admin only)
-export const declineFilm = async (req, res) => {
-  try {
-    const film = await Film.findById(req.params.id);
-    if (!film) return res.status(404).json({ message: 'Film not found' });
-    film.status = 'declined';
-    await film.save();
-    res.json({ message: 'Film declined successfully', film });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error while declining film', error: error.message });
   }
 };

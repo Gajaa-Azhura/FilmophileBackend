@@ -1,4 +1,30 @@
+// Basic provider profile endpoint for ArtProviderProfile.jsx
+export const getProviderProfile = async (req, res) => {
+  try {
+    // Use req.user.id if using authentication
+    let providerId = req.user && req.user.id;
+    let providerName = req.user && req.user.name;
+    let providerEmail = req.user && req.user.email;
+    // fallback: get from token or dummy if not present
+    if (!providerId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+    // Find all films uploaded by this provider
+    const films = await Film.find({ uploadedBy: providerId });
+    res.json({
+      _id: providerId,
+      name: providerName || 'Provider',
+      email: providerEmail || '',
+      role: 'provider',
+      films,
+      awards: [],
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error while fetching provider profile' });
+  }
+};
 import User from '../models/User.js';
+import Film from '../models/Films.js';
 import bcrypt from 'bcryptjs';
 
 export const getArtistProfile = async (req, res) => {
@@ -8,7 +34,9 @@ export const getArtistProfile = async (req, res) => {
     if (req.user.role !== 'admin' && req.user.id !== user._id.toString()) {
       return res.status(403).json({ message: 'Unauthorized to view this artist profile' });
     }
-    res.json(user);
+    // Find all films uploaded by this provider
+    const films = await Film.find({ uploadedBy: user._id });
+    res.json({ ...user.toObject(), films });
   } catch (error) {
     res.status(500).json({ message: 'Server error while fetching artist profile' });
   }

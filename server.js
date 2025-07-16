@@ -1,3 +1,5 @@
+
+import dotenv from 'dotenv';
 import express from 'express';
 import { Server } from 'socket.io';
 import http from 'http';
@@ -7,7 +9,6 @@ import adminRoutes from './routes/adminRoutes.js';
 import providerRoutes from './routes/providerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import { connectDB } from './config/db.js';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -18,6 +19,7 @@ import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import User from './models/User.js';
 import errorHandler from './middleware/errorHandler.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,7 +28,6 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
 // Firebase Admin SDK Initialization (Windows-safe)
 try {
@@ -57,7 +58,7 @@ io.on('connection', (socket) => {
 
   socket.on('viewFilm', async (filmId) => {
     try {
-      const Film = (await import('./models/FilmModel.js')).default;
+      const Film = (await import('./models/filmModel.js')).default;
       const film = await Film.findById(filmId);
       if (film && film.isApproved) {
         film.views += 1;
@@ -100,6 +101,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/films', filmRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/provider', providerRoutes);
+
+app.use('/api/payments', paymentRoutes);
 app.use('/api/users', userRoutes);
 
 // Health Check
@@ -107,31 +110,13 @@ app.get('/api/health', (req, res) => res.send('Server running and routes active'
 
 // 404 Handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found', path: req.originalUrl, method: req.method }));
-// Assuming you have a Film model
-app.get('/api/films', async (req, res) => {
-  try {
-    const films = await Film.find(); // Fetch all films
-    res.json(films);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch films' });
-  }
-});
-app.get('/api/films/:id', async (req, res) => {
-  try {
-    const film = await Film.findById(req.params.id);
-    if (!film) return res.status(404).json({ error: 'Film not found' });
-    res.json(film);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch film' });
-  }
-});
 // Error Handler
 app.use(errorHandler);
 
 // Start Server
 connectDB()
   .then(() => {
-    const PORT = process.env.PORT;
+    const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => {
       console.log('Server running on port', PORT);
     });

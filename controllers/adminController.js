@@ -1,18 +1,43 @@
 import User from '../models/User.js';
 import Film from '../models/Films.js';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 
 export const approveFilm = async (req, res) => {
   try {
-    const film = await Film.findById(req.params.id);
-    if (!film) return res.status(404).json({ message: 'Film not found' });
-    if (film.status !== 'pending') return res.status(400).json({ message: 'Film is not pending approval' });
+    const { id } = req.params;
+    console.log(`[approveFilm] - Received request to approve film with ID: ${id}`);
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.error(`[approveFilm] - Invalid film ID: ${id}`);
+      return res.status(400).json({ message: 'Invalid film ID' });
+    }
+
+    console.log(`[approveFilm] - Finding film with ID: ${id}`);
+    const film = await Film.findById(id);
+
+    if (!film) {
+      console.error(`[approveFilm] - Film not found with ID: ${id}`);
+      return res.status(404).json({ message: 'Film not found' });
+    }
+    console.log(`[approveFilm] - Found film: ${JSON.stringify(film)}`);
+
+    if (film.status !== 'pending') {
+      console.warn(`[approveFilm] - Film is not pending approval. Current status: ${film.status}`);
+      return res.status(400).json({ message: 'Film is not pending approval' });
+    }
+
+    console.log(`[approveFilm] - Updating film status to 'approved'`);
     film.status = 'approved';
+
+    console.log(`[approveFilm] - Saving updated film...`);
     await film.save();
+    console.log(`[approveFilm] - Film saved successfully`);
+
     res.json({ message: 'Film approved successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error while approving film' });
+    console.error('[approveFilm] - An error occurred while approving the film:', error);
+    res.status(500).json({ message: 'Server error while approving film', error: error.message, stack: error.stack });
   }
 };
 
@@ -99,5 +124,43 @@ export const deleteAdminProfile = async (req, res) => {
     res.json({ message: 'Admin deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error while deleting admin' });
+  }
+};
+
+export const testApproveFilm = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`[testApproveFilm] - Received request to approve film with ID: ${id}`);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.error(`[testApproveFilm] - Invalid film ID: ${id}`);
+      return res.status(400).json({ message: 'Invalid film ID' });
+    }
+
+    console.log(`[testApproveFilm] - Finding film with ID: ${id}`);
+    const film = await Film.findById(id);
+
+    if (!film) {
+      console.error(`[testApproveFilm] - Film not found with ID: ${id}`);
+      return res.status(404).json({ message: 'Film not found' });
+    }
+    console.log(`[testApproveFilm] - Found film: ${JSON.stringify(film)}`);
+
+    if (film.status !== 'pending') {
+      console.warn(`[testApproveFilm] - Film is not pending approval. Current status: ${film.status}`);
+      return res.status(400).json({ message: 'Film is not pending approval' });
+    }
+
+    console.log(`[testApproveFilm] - Updating film status to 'approved'`);
+    film.status = 'approved';
+
+    console.log(`[testApproveFilm] - Saving updated film...`);
+    await film.save();
+    console.log(`[testApproveFilm] - Film saved successfully`);
+
+    res.json({ message: 'Film approved successfully' });
+  } catch (error) {
+    console.error('[testApproveFilm] - An error occurred while approving the film:', error);
+    res.status(500).json({ message: 'Server error while approving film', error: error.message, stack: error.stack });
   }
 };

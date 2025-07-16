@@ -28,7 +28,7 @@ const dummyPayments = [
 
 const seedPaymentData = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI, { useUnifiedTopology: true });
+    await mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
     console.log('MongoDB connected for seeding');
 
     // Optional: Clear existing payment data if you have a Payment model
@@ -41,28 +41,28 @@ const seedPaymentData = async () => {
         console.log(`Skipping payment for invalid film ${payment.filmId}`);
         continue;
       }
-
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: payment.amount,
-        currency: payment.currency,
-        description: `Payment for ${film.title}`,
-        metadata: {
-          filmId: payment.filmId,
-          userId: payment.userId
-        },
-        payment_method_types: ['card'],
-        // In test mode, use a test card (e.g., 4242 4242 4242 4242)
-        // This would typically come from a frontend, but for dummy data, we simulate success
-      });
-
-      console.log(`Created payment intent for ${film.title}:`, paymentIntent.id);
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: payment.amount,
+          currency: payment.currency,
+          description: `Payment for ${film.title}`,
+          metadata: {
+            filmId: payment.filmId,
+            userId: payment.userId
+          },
+          payment_method_types: ['card'],
+        });
+        console.log(`Created payment intent for ${film.title}:`, paymentIntent.id);
+      } catch (stripeErr) {
+        console.error(`Stripe error for film ${film.title}:`, stripeErr.message);
+      }
     }
 
-    mongoose.connection.close();
+    await mongoose.connection.close();
     console.log('Payment seeding completed');
   } catch (err) {
     console.error('Seeding error:', err);
-    mongoose.connection.close();
+    await mongoose.connection.close();
   }
 };
 
